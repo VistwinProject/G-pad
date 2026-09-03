@@ -2,16 +2,31 @@
    住戶端 Pad（pad.html）
    色票沿用 style.css 的 :root，版面這裡自己來。
    ⚠️ style.css 的 html{font-size} 是給 1920×1080 看板算的（取 vw/vh 較小者），
-      Pad 直向的時候會算出很小的 rem，所以這裡整支蓋掉，改用 vmin 為基準。
+      Pad 直向的時候會算出很小的 rem，所以這裡整支蓋掉，改用**版面盒子的寬度**為基準。
    ⚠️ 四個狀態（safe / alarm / guide / clear）全部靠 body[data-state] 換，
       js 只改那一個屬性和幾段文字，不動結構。
    ========================================================================= */
-html.pad-root, html:has(body.pad){ font-size:clamp(11px, 2.2vmin, 26px); overflow:hidden }
+/* 版面固定在實機的長寬比（寬 17.75 : 高 24.97，直向），視窗比例不對就自動留邊。
+   這樣在筆電的瀏覽器上看到的排版，就跟平板上一模一樣，不用兩邊各調一次。
+   ⚠️ rem 要跟著**盒子的寬度**算，不能用 vmin —— 視窗一變寬，vmin 跟著變大，
+      但盒子被長寬比綁住沒有變大，字就會撐爆版面。
+   ⚠️ 用 dvw/dvh 不用 vw/vh：行動瀏覽器的網址列會收合，vh 是「收合後」的高度，
+      畫面會在捲動時抖一下。 */
+html.pad-root, html:has(body.pad){
+  --pad-k:.71085;                                    /* 17.75 / 24.97 */
+  --pad-w:min(100dvw, 100dvh * var(--pad-k));        /* 盒子的實際寬度 */
+  font-size:clamp(11px, calc(var(--pad-w) * .022), 26px);
+  height:100dvh;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg-0);                            /* 留邊的顏色 */
+}
 
 body.pad{
   --tone:var(--brand-hi);                  /* 這個狀態的主色，下面每個 data-state 各自換掉 */
   --tone-soft:color-mix(in srgb, var(--tone) 22%, transparent);
-  margin:0;height:100dvh;overflow:hidden;
+  margin:0;overflow:hidden;
+  /* 盒子本身：寬度由視窗決定，高度一律照長寬比算出來 */
+  width:var(--pad-w);height:calc(var(--pad-w) / var(--pad-k));
   display:flex;flex-direction:column;
   padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background:
