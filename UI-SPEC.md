@@ -169,8 +169,9 @@ html{ font-size:max(8px, min(.8333vw, 1.4814vh)) }   /* 1920×1080 時 = 16px */
 | 元素 | 文字 | 字級 |
 | --- | --- | --- |
 | `.intro__chip` | 結語 · OUTRO | 1.2rem / 19.2px |
-| `.intro__title` 左段 | 預見風險才能領先 | 3.57rem / 57.1px |
-| `.intro__title` `<em>` | 危險一步 | 5.1rem / 81.6px |
+| `.intro__title` 左段 | 預見風險才能 | 3.57rem / 57.1px |
+| `.intro__title` `<em>` | **領先** | 5.1rem / 81.6px |
+| `.intro__title` 右段 | 危險一步 | 3.57rem / 57.1px |
 | `.intro__lead` | 從感知、判斷到引導，讓 AI 守護每一個回家的日常。 | 1.9rem / 30.4px |
 | `.intro__sign` | **寶鋪**以智慧守護家的每一秒。 | 1.3rem / 20.8px |
 
