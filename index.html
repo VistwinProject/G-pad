@@ -22,6 +22,21 @@
      兩個都由 js/pad.js 依主展示端送來的場景決定。 -->
 <body class="pad" data-state="safe" data-view="idle">
 
+<!-- 深色／淺色切換：四個版面共用一顆，直接掛在 body.pad 底下。
+     ⚠️ 放在**狀態列下方**的右上角，不是貼齊上緣 —— 右上角已經被訊號／電量佔住了
+        （那是鎖屏的樣子，不要動）。位置在 css/pad.css 的 .skin-toggle。
+     ⚠️ 圖示顯示的是「按下去會變成什麼」：深色給太陽、淺色給月亮，切換是純 CSS。
+     ⚠️ 平板現場其實用 ?skin=light 就好；這顆是給手上直接點、以及筆電預覽用的。 -->
+<button class="skin-toggle" type="button" id="skin-toggle" aria-label="切換到淺色">
+  <svg class="skin-toggle__sun" viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.5"/>
+    <path d="M12 2.6v2.3M12 19.1v2.3M2.6 12h2.3M19.1 12h2.3M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3L17 7M7 17l-1.7 1.7"/>
+  </svg>
+  <svg class="skin-toggle__moon" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M20.2 14.6A8.5 8.5 0 0 1 9.4 3.8a8.5 8.5 0 1 0 10.8 10.8Z"/>
+  </svg>
+</button>
+
 <!-- 上緣那條。待機頁／警報頁換成平板鎖屏那樣的狀態列（訊號／電量），
      其他頁維持「住戶端 · RESIDENT ＋ 連線指示」。 -->
 <header class="pad__bar">

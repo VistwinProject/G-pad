@@ -435,15 +435,23 @@ els.alarmSec?.addEventListener('pointercancel', () => { swipeFrom = null; });
    ⚠️ 平板上**沒有實體鍵盤**，所以現場真正會用的是 ?skin=light（連同 ?server= 一起
       加成書籤）。S 鍵是給筆電上預覽、跟大螢幕對照時用的。
    ========================================================================= */
+/* 右上角的太陽／月亮，點一下等於按 S。
+   ⚠️ 要宣告在 setSkin **前面** —— setSkin 在載入時就會被呼叫一次（套用存下來的 skin）。 */
+const skinBtn = document.getElementById('skin-toggle');
+
 function setSkin(name) {
   const next = name === 'light' ? 'light' : 'dark';
   if (next === 'light') document.documentElement.dataset.skin = 'light';
   else delete document.documentElement.dataset.skin;
   localStorage.setItem('skin', next);
+  // 圖示是 CSS 換的，這裡只把說明文字對上「按下去會變成什麼」
+  skinBtn?.setAttribute('aria-label', next === 'light' ? '切換到深色' : '切換到淺色');
   return next;
 }
 let skin = setSkin(new URLSearchParams(location.search).get('skin')
                    ?? localStorage.getItem('skin') ?? 'dark');
+skinBtn?.addEventListener('click', () => { skin = setSkin(skin === 'light' ? 'dark' : 'light'); });
+
 addEventListener('keydown', (e) => {
   if (e.repeat || e.target instanceof HTMLInputElement) return;
   if (e.code !== 'KeyS') return;

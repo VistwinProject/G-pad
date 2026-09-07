@@ -23,6 +23,7 @@ html.pad-root, html:has(body.pad){
 }
 
 body.pad{
+  position:relative;                       /* .skin-toggle 要靠它定位 */
   --tone:var(--brand-hi);                  /* 這個狀態的主色，下面每個 data-state 各自換掉 */
   --tone-soft:color-mix(in srgb, var(--tone) 22%, transparent);
   margin:0;overflow:hidden;
@@ -781,3 +782,29 @@ body.pad[data-state="clear"]{ --route:var(--exit) }
     radial-gradient(80% 55% at 12% 62%, rgba(90,150,215,.20), transparent 68%),
     linear-gradient(168deg, #eef5fd 0%, #f7faff 46%, #ffffff 100%);
 }
+
+/* ---------- 深色／淺色切換 ----------
+   ⚠️ 放在**狀態列下方**（top 3.4rem）而不是貼齊上緣 —— Pad 的右上角是訊號／電量，
+      那是鎖屏的樣子，不要去撞它。要移位置只改這裡的 right / top。
+   ⚠️ 尺寸用 rem，而 Pad 的 rem 是照「版面盒子的寬度」算的（見檔案最上面），
+      所以在平板和筆電上看到的大小是一樣的。 */
+.skin-toggle{
+  position:absolute;right:1.4rem;top:3.4rem;z-index:40;
+  width:2.3rem;height:2.3rem;padding:.45rem;
+  display:grid;place-items:center;
+  border:1px solid color-mix(in srgb, var(--ink) 22%, transparent);border-radius:50%;
+  background:none;color:var(--ink);
+  cursor:pointer;opacity:.45;
+  transition:opacity .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease);
+}
+.skin-toggle:hover{opacity:.9}
+.skin-toggle:focus-visible{outline:2px solid var(--tone);outline-offset:2px}
+.skin-toggle:active{translate:0 1px}
+.skin-toggle svg{
+  width:100%;height:100%;fill:none;stroke:currentColor;
+  stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;
+}
+/* 顯示「按下去會變成什麼」：深色 → 太陽，淺色 → 月亮 */
+.skin-toggle__moon{display:none}
+[data-skin="light"] .skin-toggle__sun{display:none}
+[data-skin="light"] .skin-toggle__moon{display:block}
