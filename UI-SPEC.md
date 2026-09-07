@@ -643,6 +643,7 @@ body.pad.is-swipe .pad__app  { animation:swipeIn .58s var(--ease) }
 | `B` | 回藍色介面（不在首頁就先進首頁） |
 | `R` | 重置倒數（只在黃金30秒那頁） |
 | `E` | 編輯模式（拖曳／縮放版面，存進 `layout*.json`） |
+| `S` | 深色／淺色切換（`data-skin="light"`；Pad 上沒鍵盤，現場用 `?skin=light`） |
 
 ---
 

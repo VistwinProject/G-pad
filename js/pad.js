@@ -427,6 +427,30 @@ els.alarmSec?.addEventListener('pointerup', (e) => {
 });
 els.alarmSec?.addEventListener('pointercancel', () => { swipeFrom = null; });
 
+/* =========================================================================
+   深色 / 淺色（按 S 切換）
+   跟大螢幕同一套做法：html[data-skin="light"] ＝淺色，沒有這個屬性＝深色。
+   ⚠️ 這是**這台自己的**設定，不會送給大螢幕、也不會被大螢幕的狀態蓋掉 ——
+      現場很可能大螢幕要深色（暗場看板）、手上的平板要淺色，所以刻意各自獨立。
+   ⚠️ 平板上**沒有實體鍵盤**，所以現場真正會用的是 ?skin=light（連同 ?server= 一起
+      加成書籤）。S 鍵是給筆電上預覽、跟大螢幕對照時用的。
+   ========================================================================= */
+function setSkin(name) {
+  const next = name === 'light' ? 'light' : 'dark';
+  if (next === 'light') document.documentElement.dataset.skin = 'light';
+  else delete document.documentElement.dataset.skin;
+  localStorage.setItem('skin', next);
+  return next;
+}
+let skin = setSkin(new URLSearchParams(location.search).get('skin')
+                   ?? localStorage.getItem('skin') ?? 'dark');
+addEventListener('keydown', (e) => {
+  if (e.repeat || e.target instanceof HTMLInputElement) return;
+  if (e.code !== 'KeyS') return;
+  skin = setSkin(skin === 'light' ? 'dark' : 'light');
+  e.preventDefault();
+});
+
 render(null);                                   // 還沒收到之前先給待機畫面
 
 // 給現場除錯用：__pad.render({scene:'aiRoute', phase:'running', exit:'A', route:0})

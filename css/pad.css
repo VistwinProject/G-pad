@@ -739,3 +739,45 @@ body.pad[data-state="clear"]{ --route:var(--exit) }
   .nact,.aact--live{transition:color .18s linear}
   .nact:active,.aact--live:active{transform:none}
 }
+
+/* ---------- 淺色版的待機頁／警報頁 ----------
+   ⚠️ 深色版在桌布上疊的是**壓暗層**（讓白字浮出來）；淺色版的字是深藍，
+      要反過來疊**提亮層**（白霧），深色的字才讀得出來。中段一樣留亮，圖才看得到。
+   ⚠️ 桌布本身是一張**偏暗的藍色照片**，這裡只是用白霧把它洗淡，不是換圖。
+      要真的好看得另外準備一張淺色桌布 —— 換 body.pad 的 --wallpaper 那一行就好。
+   ⚠️ 圖層數和 background-blend-mode 的個數**必須一樣多**，不然混合模式會對錯層。
+   ⚠️ .alert（那張 iOS 白色通知卡）兩種 skin 都不動 —— 它本來就是白底黑字。 */
+[data-skin="light"] body.pad[data-view="idle"]{
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,.93) 0%, rgba(255,255,255,.80) 24%,
+      rgba(255,255,255,.72) 50%, rgba(255,255,255,.84) 86%, rgba(255,255,255,.94) 100%),
+    var(--wallpaper) center / cover no-repeat,
+    radial-gradient(66% 50% at 68% 72%, rgba(120,175,235,.28), transparent 62%),
+    radial-gradient(76% 56% at 20% 30%, rgba(90,150,215,.22), transparent 66%),
+    linear-gradient(165deg, #eef5fd 0%, #f6faff 52%, #ffffff 100%);
+}
+[data-skin="light"] body.pad[data-view="alarm"]{
+  background:
+    linear-gradient(180deg,
+      rgba(255,255,255,.91) 0%, rgba(255,255,255,.76) 24%,
+      rgba(255,255,255,.68) 50%, rgba(255,255,255,.80) 86%, rgba(255,255,255,.92) 100%),
+    linear-gradient(180deg, rgba(196,28,36,.95), rgba(150,14,24,.95)),
+    var(--wallpaper) center / cover no-repeat,
+    radial-gradient(68% 52% at 76% 16%, rgba(255,120,110,.30), transparent 62%),
+    linear-gradient(165deg, #ffeeec 0%, #fff5f4 52%, #fffbfa 100%);
+  background-blend-mode: normal, color, normal, normal, normal;
+}
+
+/* ---------- 淺色版的 App 頁（雲端宅邸）----------
+   ⚠️ notice（前往 X 出口）和 plain（結語）不用另外寫 —— 它們吃 body.pad 那組
+      var(--bg-*) 的底，色票換了就自動變淺。只有 idle / alarm / app 三頁的背景是寫死的。
+   ⚠️ 主視覺 .app__pic 那張建築渲染圖是**深色的圖檔**，淺色版下它還是深的。
+      這是刻意不動 —— 淺色頁面上放一張深色主視覺是正常的做法（像照片卡），
+      硬洗白反而會把渲染圖的層次洗掉。真要淺色主視覺得另外出一張圖。 */
+[data-skin="light"] body.pad[data-view="app"]{
+  background:
+    radial-gradient(60% 42% at 78% 8%, rgba(120,175,235,.26), transparent 64%),
+    radial-gradient(80% 55% at 12% 62%, rgba(90,150,215,.20), transparent 68%),
+    linear-gradient(168deg, #eef5fd 0%, #f7faff 46%, #ffffff 100%);
+}

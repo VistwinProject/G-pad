@@ -107,6 +107,104 @@
   --stage-0:var(--brand-hi);   /* 0-10 秒（剩 30-21）：藍，跟著主色走 */
   --stage-1:#ffb42e;           /* 10-20 秒（剩 20-11）：黃 */
   --stage-2:#ff4a3d;           /* 20-30 秒（剩 10-0）：紅 */
+
+  /* ---- 深/淺共用的鉤子（深色的值）----
+     這幾個地方原本把深色寫死在規則裡，淺色版沒辦法只靠色票覆蓋，所以抽成變數。
+     ⚠️ 值跟原本一模一樣，深色外觀不變。淺色的覆蓋在下面 [data-skin="light"]。 */
+  --grain-line:rgba(0,0,0,.16);   /* 掃描線的顏色 */
+  --grain-op:.5;                  /* 掃描線的濃度 */
+  --ico-bg:rgba(0,0,0,.35);       /* 階段卡圓形 icon 的底 */
+  --ico-mix:rgba(0,0,0,.4);       /* icon 亮起時要混進去的底色 */
+  --noise-blend:screen;           /* 按鈕 glitch 雜訊層的混合模式 */
+  --veil:#000;                    /* 切狀態時蓋住 3D 的遮幕 */
+}
+
+/* =========================================================
+   淺色版（白底藍字）—— 按 S 切換，或 ?skin=light
+   ---------------------------------------------------------
+   做法：<html data-skin="light">。這是**跟 data-theme 垂直的另一個維度** ——
+   blue / red / green 三個情境色照舊運作，只是換成淺色的那一套值。
+
+   ⚠️ 選擇器一定要**同時帶 data-skin 和 data-theme**（除了 blue 那組靠排在後面取勝）。
+      單寫 :root[data-skin="light"] 的特異性跟 :root[data-theme="green"] 一樣，
+      切到綠色時會被深綠蓋回去。
+
+   ⚠️ 深色版的「越亮＝越重點」在白底上要**反過來**：
+      --brand-hi 變成比 --brand 更深的藍（標題、數字要跟白底有對比），
+      --brand 退成細框線用的中間藍。不換角色的話標題會比框線還淡。
+   ⚠️ 細框線和淡字要**加不透明度**（.22 → .28、.38 → .50）——
+      深色底吃得住的淡度，白底吃不住，在投影機上會整條消失。
+   ========================================================= */
+:root[data-skin="light"],
+:root[data-skin="light"][data-theme="blue"]{
+  --bg-0:#ffffff;        /* 基底白。畫布留邊（letterbox）也是這個色 */
+  --bg-1:#eef5fd;
+  --bg-2:#e2edfa;
+
+  --brand:#3f97e8;       /* 中間藍：框線、次要圖示 */
+  --brand-hi:#0b5cb8;    /* 深藍：標題、數字、重點字 */
+  --brand-line:rgba(11,92,184,.28);
+  --brand-soft:rgba(63,151,232,.16);
+
+  /* ⚠️ 深色版的漸層是「往亮的方向打光」，白底要反過來**往暗的方向壓**，
+     不然完全看不出漸層（白色上面加白光等於沒加）。 */
+  --glow-1:rgba(120,175,235,.30);
+  --glow-2:rgba(90,150,215,.20);
+
+  --ink:#0b3b6b;         /* 主要文字：深藍，不是黑 */
+  --ink-2:rgba(16,66,116,.72);
+  --ink-3:rgba(22,74,126,.50);
+
+  --m-fog:#f4f8fe;       /* 霧＝底色，遠處才融進背景 */
+  --m-floor:#e6eef8;
+  --m-slab:#d8e7f7;      /* 樓板：白底上不能再用白，改淡藍灰才看得出樓層 */
+  --m-shade:#7f9dbd;
+  --m-wall:#a9c8e6;
+  --m-edge:#0b5cb8;      /* 結構框線要深，白底上才看得見 */
+  --m-grid:#3f97e8;
+  --m-grid-2:#9dc0e0;
+}
+
+:root[data-skin="light"][data-theme="green"]{
+  --bg-0:#fbfffd;  --bg-1:#e9f9f1;  --bg-2:#dcf5e8;
+  --brand:#1fae6c; --brand-hi:#067a45;
+  --brand-line:rgba(6,122,69,.28);  --brand-soft:rgba(31,174,108,.16);
+  --glow-1:rgba(120,205,165,.30);   --glow-2:rgba(85,175,135,.20);
+  --ink:#0a3f28;   --ink-2:rgba(12,74,48,.72);  --ink-3:rgba(20,86,58,.50);
+  --m-fog:#f2fdf7; --m-floor:#e2f5ea; --m-slab:#d5f0e2; --m-shade:#6fa189;
+  --m-wall:#a9dcc2; --m-edge:#067a45; --m-grid:#1fae6c; --m-grid-2:#98c9b0;
+}
+
+/* 跑動線那幾秒用的紅色。⚠️ 這一組也要做淺色，不然按下按鈕會從白跳成深紅。 */
+:root[data-skin="light"][data-theme="red"]{
+  --bg-0:#fffbfa;  --bg-1:#ffeeec;  --bg-2:#ffe2df;
+  --brand:#e8564a; --brand-hi:#c21c0d;
+  --brand-line:rgba(194,28,13,.28); --brand-soft:rgba(232,86,74,.16);
+  --glow-1:rgba(235,150,140,.30);   --glow-2:rgba(215,110,100,.20);
+  --ink:#6b1a12;   --ink-2:rgba(120,32,22,.72); --ink-3:rgba(130,45,35,.50);
+  --m-fog:#fff5f4; --m-floor:#f8e6e4; --m-slab:#f7dcd7; --m-shade:#b07a72;
+  --m-wall:#eab5ae; --m-edge:#c21c0d; --m-grid:#e8564a; --m-grid-2:#d99a92;
+}
+
+/* 語意色和深/淺鉤子（不分情境色，所以不用配 data-theme）。
+   ⚠️ 語意色**調深了**：深色版的 --exit:#3dffa0（亮薄荷綠）和 --amber:#ffb42e
+      在白底上幾乎看不見。色相保留（還是綠／黃／紅），只降明度。
+      「不隨主題變」是指不跟著 blue/red/green 換，不是不能為白底重定亮度。 */
+:root[data-skin="light"]{
+  --amber:#b87400;
+  --red:#d81f10;
+  --exit:#00994f;
+  --stage-1:#b87400;
+  --stage-2:#d81f10;
+
+  /* ⚠️ multiply 在白底上會把線色**完整**顯示出來（深色底才會被吃掉），所以要調淡、改藍調 */
+  --grain-line:rgba(11,92,184,.07);
+  --grain-op:.35;
+  --ico-bg:rgba(11,92,184,.06);
+  --ico-mix:#fff;
+  /* ⚠️ 白色是 screen 的單位元 —— 白底上那層雜訊會整層消失，要改成往暗壓的 multiply */
+  --noise-blend:multiply;
+  --veil:#fff;           /* 切狀態時是「白閃」不是「黑閃」 */
 }
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
