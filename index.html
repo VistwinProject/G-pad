@@ -13,37 +13,345 @@
 <title>住戶端 — 逃生指引</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Oswald:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=Oswald:wght@400;500;600&display=swap" rel="stylesheet">
 <!-- style.css 只是為了共用 :root 的色票，版面全部由 pad.css 蓋掉 -->
 <link rel="stylesheet" href="./css/style.css">
 <link rel="stylesheet" href="./css/pad.css">
 </head>
-<body class="pad" data-state="safe">
+<!-- data-state 是配色（safe/alarm/guide/clear），data-view 是版面（idle/plain/notice）。
+     兩個都由 js/pad.js 依主展示端送來的場景決定。 -->
+<body class="pad" data-state="safe" data-view="idle">
 
+<!-- 上緣那條。待機頁／警報頁換成平板鎖屏那樣的狀態列（訊號／電量），
+     其他頁維持「住戶端 · RESIDENT ＋ 連線指示」。 -->
 <header class="pad__bar">
+  <!-- App 那頁的狀態列左邊是時間（跟鎖屏的大時鐘同一個來源） -->
+  <span class="pad__time" id="bar-time">--:--</span>
   <span class="pad__brand">住戶端 · RESIDENT</span>
-  <span class="pad__link" id="link" data-ok="0"><i></i><b>連線中…</b></span>
+  <span class="pad__stat">
+    <!-- ⚠️ 連線指示**不要拿掉**：現場要一眼看得出這台還連著大螢幕沒有。
+         待機頁上它就是那個訊號圖示（沒連上會轉紅閃爍），不是裝飾。 -->
+    <span class="pad__link" id="link" data-ok="0">
+      <i></i><b>連線中…</b>
+      <svg class="pad__wifi" viewBox="0 0 24 18" aria-hidden="true">
+        <path d="M2.2 6.1a14 14 0 0 1 19.6 0"/>
+        <path d="M5.6 9.7a9.2 9.2 0 0 1 12.8 0"/>
+        <path d="M8.9 13.2a4.6 4.6 0 0 1 6.2 0"/>
+        <circle class="wifi__dot" cx="12" cy="16.2" r="1.1"/>
+      </svg>
+    </span>
+    <span class="pad__batt" id="batt">
+      <b>100%</b>
+      <span class="batt__box" aria-hidden="true"><i></i></span>
+    </span>
+  </span>
 </header>
 
 <main class="pad__main">
 
-  <!-- 狀態燈號（四個狀態共用，靠 body[data-state] 換色與動畫） -->
-  <div class="pad__beacon" aria-hidden="true"><i></i><i></i><i></i></div>
+  <!-- ============ 待機（intro）：乾淨的鎖屏，不放通知 ============
+       ⚠️ 這一頁和下面的警報頁**共用同一套鎖屏骨架**（.lock__*）。
+          待機就是空的鎖屏，有事才由警報頁跳一則通知出來 —— 這個對比本身就是資訊，
+          所以待機頁**不要**再放常駐的卡片或狀態磚。 -->
+  <section class="pad__idle">
 
-  <p class="pad__kicker" id="kicker">系統待機中</p>
-  <h1 class="pad__title" id="title">安全</h1>
-  <p class="pad__sub" id="sub">住戶端連線正常，目前無異常</p>
+    <span class="lock__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <rect x="4.6" y="10.8" width="14.8" height="10.6" rx="2.2"/>
+        <path d="M8.4 10.8V7.8a3.6 3.6 0 0 1 7.2 0v3"/>
+      </svg>
+    </span>
 
-  <!-- 逃生指引：只有 aiRoute 會顯示 -->
-  <div class="pad__route" id="route" hidden>
-    <ol class="pad__steps">
-      <li><span>1</span>目前位置</li>
-      <li><span>2</span>沿走廊前進</li>
-      <li class="is-goal"><span>3</span><b id="goal">B 出口</b></li>
-    </ol>
-  </div>
+    <p class="lock__clock"><span id="clk-h">--</span><em>:</em><span id="clk-m">--</span></p>
+    <p class="lock__date"><span id="clk-date">--月--日 星期-</span></p>
+    <p class="lock__system">安全守護系統</p>
 
+    <p class="lock__more">向上滑動以查看</p>
+    <span class="lock__home" aria-hidden="true"></span>
+
+  </section>
+
+  <!-- ============ 火災警報（golden30 ／ 還在規劃路線的 aiRoute） ============
+       跟待機頁同一套鎖屏骨架，整片轉紅，通知換成火災警報。
+       進到這一頁的那一下會震動 + 畫面抖一下，見 js/pad.js 的 buzz()。 -->
+  <section class="pad__alarm" aria-live="polite">
+
+    <span class="lock__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <rect x="4.6" y="10.8" width="14.8" height="10.6" rx="2.2"/>
+        <path d="M8.4 10.8V7.8a3.6 3.6 0 0 1 7.2 0v3"/>
+      </svg>
+    </span>
+
+    <p class="lock__clock"><span id="a-h">--</span><em>:</em><span id="a-m">--</span></p>
+    <p class="lock__date"><span id="a-date">--月--日 星期-</span></p>
+    <p class="lock__system">安全守護系統</p>
+
+    <!-- ⚠️ 通知卡是**淺色**的，跟整頁的深紅底對比才跳得出來，就像手機鎖屏上的通知
+         —— 不要為了配色把它改成深色。兩頁共用 .alert，改一邊等於改兩邊。 -->
+    <div class="alert">
+      <p class="alert__head">
+        <span class="alert__badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 3.4 22 20.4H2L12 3.4Z"/>
+            <path d="M12 9.6v4.4"/>
+            <circle cx="12" cy="17.2" r="1.05"/>
+          </svg>
+        </span>
+        <b>緊急警報</b>
+        <i>現在</i>
+      </p>
+      <p class="alert__title">住宅火災警報</p>
+      <p class="alert__body">系統偵測到建築內發生火災，請立即疏散。<br>請依照逃生指引離開，並留意現場廣播與標示。</p>
+      <p class="alert__en">Fire Alert. Evacuate immediately and follow evacuation guidance.</p>
+    </div>
+
+    <p class="lock__more">向上滑動以查看</p>
+    <span class="lock__home" aria-hidden="true"></span>
+
+  </section>
+
+  <!-- ============ 雲端宅邸 App（aiRoute，主展示端還在首頁待機） ============
+       主展示端切到首頁（雲端宅邸）、還沒開始跑動線時，Pad 從警報那頁
+       **向上滑動**帶出這一頁，像手機解鎖進主畫面。滑動見 js/pad.js 的 swipe()。
+       ⚠️ 一旦主展示端挑好動線（送來 exit），就換成「前往 X 出口」那頁。 -->
+  <section class="pad__app">
+
+    <header class="app__bar">
+      <span class="app__logo" aria-hidden="true">
+        <svg viewBox="0 0 32 24">
+          <path d="M8.6 20.4h14.2a5.2 5.2 0 0 0 .5-10.4A7.1 7.1 0 0 0 9.4 7.8a5.5 5.5 0 0 0-.8 12.6Z"/>
+          <path d="M12.8 17.2v-2.8M16 17.2v-5M19.2 17.2v-3.6"/>
+        </svg>
+      </span>
+      <span class="app__name"><b>雲端宅邸</b><i>SMART RESIDENCE</i></span>
+      <span class="app__user" aria-hidden="true">
+        <svg viewBox="0 0 32 32">
+          <circle cx="16" cy="16" r="14.4"/>
+          <circle cx="16" cy="12.6" r="4.1"/>
+          <path d="M8.4 26.2a8.4 8.4 0 0 1 15.2 0"/>
+        </svg>
+      </span>
+    </header>
+
+    <div class="app__hero">
+      <p class="app__aside">更安全的家<br>更美好的生活<span aria-hidden="true"></span></p>
+      <h1 class="app__title">你的安全，由<b>寶舖守護</b></h1>
+      <p class="app__rule"><span aria-hidden="true"></span>全天候智慧安全守護中<span aria-hidden="true"></span></p>
+      <!-- 建物是**真的 BIM 模型**算出來的軸測線稿，見 tools/render-residence.mjs。
+           上下用遮罩淡出，融進頁面的底色。 -->
+      <div class="app__pic" role="img" aria-label="雲端宅邸建物">
+        <!-- 內層照整張圖的比例（比框高），所以框裡可以上下滑動看整棟樓 -->
+        <span class="app__picinner" aria-hidden="true"></span>
+      </div>
+      <!-- 四周的小字。⚠️ 以前是烤在裁圖裡的，換成真的模型之後改用 DOM 文字 ——
+           這樣才不用為了改一個字重算一張圖，而且縮放時是清晰的。 -->
+      <p class="app__mark app__mark--tl">SAFER<br>HOMES<br>BRIGHTER<br>TOMORROWS<span aria-hidden="true"></span></p>
+      <p class="app__mark app__mark--mr">科技守護<br>從家開始<span aria-hidden="true"></span></p>
+      <p class="app__mark app__mark--br">A SAFER LIFE<br>AT HOME</p>
+    </div>
+
+    <div class="app__card">
+      <span class="app__shield" aria-hidden="true">
+        <svg viewBox="0 0 32 32">
+          <path d="M16 4.4 25.6 8.2v6.6c0 5.4-3.8 9.4-9.6 11.4-5.8-2-9.6-6-9.6-11.4V8.2L16 4.4Z"/>
+          <path d="m11.9 15.6 2.9 2.9 5.3-5.5"/>
+        </svg>
+      </span>
+      <span class="app__cardtext">
+        <b>居家狀態正常</b>
+        <i>AI 安全守護中</i>
+      </span>
+      <span class="app__more" aria-hidden="true">
+        <svg viewBox="0 0 12 20"><path d="m2.5 2 7 8-7 8"/></svg>
+      </span>
+      <p class="app__slogan">每一份安心 · 都是回家的理由</p>
+    </div>
+
+    <!-- ⚠️ 這三張和下面那排都是**寫死的展示值** —— 沒有門窗／空氣／保全的資料來源，
+         主展示端也沒有送。接上真的感測器之後，「拿不到」要顯示成拿不到。 -->
+    <div class="app__tiles">
+      <div class="atile">
+        <span class="atile__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="5" y="3.4" width="14" height="17.2" rx="1.2"/><path d="M12 3.4v17.2"/><circle cx="9.6" cy="12" r=".9"/></svg>
+        </span>
+        <p class="atile__label">門窗狀態</p>
+        <p class="atile__value">已關閉<span aria-hidden="true"><svg viewBox="0 0 12 20"><path d="m2.5 2 7 8-7 8"/></svg></span></p>
+      </div>
+      <div class="atile">
+        <span class="atile__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M3.4 8h11.2a2.9 2.9 0 1 0-2.9-2.9"/><path d="M3.4 12.6h14.8a2.9 2.9 0 1 1-2.9 2.9"/><path d="M4.6 17.2h6.6"/></svg>
+        </span>
+        <p class="atile__label">室內空氣</p>
+        <p class="atile__value">正常<span aria-hidden="true"><svg viewBox="0 0 12 20"><path d="m2.5 2 7 8-7 8"/></svg></span></p>
+      </div>
+      <div class="atile">
+        <span class="atile__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M3.6 11.4 15.2 7.2l2.4 6.4L6 17.8Z"/><path d="M17.6 10.2l3.2-1.2 1 2.8-3.2 1.2Z"/><path d="M8.6 17.4 7 21.4"/><circle cx="9.4" cy="11.6" r="1.4"/></svg>
+        </span>
+        <p class="atile__label">安全系統</p>
+        <p class="atile__value">待命<span aria-hidden="true"><svg viewBox="0 0 12 20"><path d="m2.5 2 7 8-7 8"/></svg></span></p>
+      </div>
+    </div>
+
+    <div class="app__acts">
+      <div class="aact">
+        <span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3.4h8.4L19 8v12.6H6Z"/><path d="M14.2 3.4V8H19"/><path d="M9 12.4h6M9 16h4.4"/></svg></span>
+        警報紀錄
+      </div>
+      <!-- ⚠️ 這一排只有「逃生指引」是**真的按鈕**，另外兩顆是裝飾（沒有資料來源）。
+           按下去是請大螢幕**隨機挑一條**逃生動線跑，兩邊一起切到「前往 X 出口」。
+           ⚠️ 挑哪一條、跑幾秒**都由大螢幕決定**，Pad 只送指令 —— 小人要跟大螢幕跑在
+              同一個進度上，路線的決定權只能有一個地方（見 js/pad.js 的 command()）。 -->
+      <button class="aact aact--live" id="act-guide" type="button">
+        <span aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="14.1" cy="4.4" r="2.2"/><path d="M13.2 8.2 9 11l1.9 3.6L8.6 21"/><path d="M13.2 8.2 17.4 10l2.4 3.2"/><path d="M10.9 14.6 5.6 13.2"/></svg></span>
+        逃生指引
+      </button>
+      <div class="aact">
+        <span aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.4"/><circle cx="12" cy="12" r="2.9"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M6.4 6.4l1.6 1.6M15.9 15.9l1.7 1.7M17.6 6.4l-1.7 1.6M8 15.9l-1.6 1.7"/></svg></span>
+        安全設定
+      </div>
+    </div>
+
+    <p class="app__foot"><b>寶舖守護 · 安心生活</b><i>SMART RESIDENCE</i></p>
+
+  </section>
+
+  <!-- ============ 結語：燈號 + 大字 ============ -->
+  <section class="pad__plain">
+    <!-- 狀態燈號，靠 body[data-state] 換色與節拍 -->
+    <div class="pad__beacon" aria-hidden="true"><i></i><i></i><i></i></div>
+    <p class="pad__kicker" id="kicker">疏散完成</p>
+    <h1 class="pad__title" id="title">已離開危險區域</h1>
+    <p class="pad__sub" id="sub">您目前位於安全區域，請留在原地等候通知</p>
+  </section>
+
+  <!-- ============ 前往 X 出口（主展示端已經挑好動線才會出現） ============ -->
+  <section class="pad__notice" aria-live="polite">
+
+    <div class="notice__head">
+      <span class="notice__flame" aria-hidden="true">
+        <svg viewBox="0 0 40 36">
+          <path class="flame__tri" d="M20 3.6 37.2 33H2.8L20 3.6Z"/>
+          <path class="flame__fire" d="M20.6 12.4c.6 2.4-.4 3.5-1.5 4.6-1.2 1.1-2.4 2.1-2.4 4.1a3.9 3.9 0 0 0 7.8.3c0-1.3-.5-2.2-1-3 1 .3 1.7 1 2.1 2 .8-2.8-.5-6-2.6-7.6-.7-.6-1.6-1-2.4-1.3Z"/>
+        </svg>
+      </span>
+      <span class="notice__headtext">
+        <b>緊急疏散提示</b>
+        <i>EMERGENCY NOTICE</i>
+      </span>
+    </div>
+
+    <!-- 出口指示 -->
+    <div class="ncard ncard--exit">
+      <span class="ncard__icon" aria-hidden="true">
+        <svg viewBox="0 0 32 32">
+          <circle cx="16" cy="16" r="14.4"/>
+          <path d="M9.6 16h9.2"/>
+          <path d="m15.6 12.5 3.5 3.5-3.5 3.5"/>
+          <path d="M22.6 10.4v11.2"/>
+        </svg>
+      </span>
+      <div class="ncard__body">
+        <!-- 開頭那兩個字是動態的：跑動線中是「請前往」，通關之後是「已抵達」 -->
+        <h1 class="exit__title"><span id="n-lead">請前往</span> <b id="n-exit">B</b> 出口</h1>
+        <p class="exit__why" id="n-why">B 出口目前較暢通，已為你更新疏散方向</p>
+      </div>
+    </div>
+
+    <!-- 迷你平面圖。牆和動線都是真的模型資料，見 js/plan-data.js -->
+    <div class="ncard ncard--plan">
+      <div class="plan__box">
+        <!-- viewBox 由 js 依這條動線裁切；長寬比跟 .plan__box 一致，
+             標籤才能用百分比疊在正確的位置上（見 js/plan.js） -->
+        <svg class="plan" id="n-plan" viewBox="0 0 45 20" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <!-- 底圖＝模型的俯視投影，由下往上疊：樓板→牆→核心筒→柱→樓梯→窗框 -->
+          <g class="plan__base">
+            <path class="pb pb--slab"  id="pb-slab"  d=""/>
+            <path class="pb pb--wall"  id="pb-wall"  d=""/>
+            <path class="pb pb--core"  id="pb-core"  d=""/>
+            <path class="pb pb--col"   id="pb-col"   d=""/>
+            <path class="pb pb--stair" id="pb-stair" d=""/>
+            <path class="pb pb--win"   id="pb-win"   d=""/>
+          </g>
+          <!-- 動線分兩段畫：還沒走的虛線在下，走過的實線＋光暈疊上去 -->
+          <path class="plan__ahead" id="n-ahead" d=""/>
+          <path class="plan__halo"  id="n-halo"  d=""/>
+          <path class="plan__line"  id="n-line"  d=""/>
+        </svg>
+        <!-- 起點。小人一開始跑就換成「起點」，因為「您的位置」已經是小人那一顆了 -->
+        <span class="plan__pin plan__pin--me" id="n-me"><i></i><b id="n-me-label">您的位置</b></span>
+        <!-- 小人：跟大螢幕的小人跑在同一個進度上（見 js/pad.js 的對時）。
+             白色實心的逃生標誌小人 —— 動線是紅的，小人再用同色就分不出來了 -->
+        <span class="plan__walker" id="n-walker" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="14.1" cy="3.9" r="2.5"/>
+            <path d="M13.2 7.8 8.4 10.6a1.5 1.5 0 0 0-.6 1.9l1.5 3-2.8 5.6a1.6 1.6 0 0 0 2.8 1.4l3.3-6.4a1.6 1.6 0 0 0-.1-1.6l-1-1.6 2.4-1.4 1.1 2.6a1.6 1.6 0 0 0 1 .9l3.6 1a1.55 1.55 0 0 0 .8-3l-2.9-.8-1.7-4a2.6 2.6 0 0 0-3.6-1.4Z"/>
+            <path d="M10.6 13.6 5.1 12.2a1.55 1.55 0 0 0-.8 3l4.6 1.2Z"/>
+          </svg>
+        </span>
+        <span class="plan__pin plan__pin--goal" id="n-goal">
+          <i></i>
+          <b><span id="n-goal-name">B 出口</span><em id="n-goal-flow">暢通</em></b>
+        </span>
+      </div>
+    </div>
+
+    <!-- 距離 ／ 已避開火源 -->
+    <div class="ncard ncard--stats">
+      <div class="stat">
+        <span class="stat__icon" aria-hidden="true">
+          <svg viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r="14.4"/>
+            <path d="M16 24.4s5.4-5 5.4-8.6a5.4 5.4 0 1 0-10.8 0c0 3.6 5.4 8.6 5.4 8.6Z"/>
+            <circle cx="16" cy="15.4" r="1.9"/>
+          </svg>
+        </span>
+        <div>
+          <p class="stat__label">剩餘距離</p>
+          <p class="stat__value"><b id="n-dist">--</b>m</p>
+        </div>
+      </div>
+      <div class="stat stat--ok">
+        <span class="stat__icon" aria-hidden="true">
+          <svg viewBox="0 0 32 32">
+            <path d="M16 4.4 25.6 8.2v6.6c0 5.4-3.8 9.4-9.6 11.4-5.8-2-9.6-6-9.6-11.4V8.2L16 4.4Z"/>
+            <path class="ok__tick" d="m11.9 15.6 2.9 2.9 5.3-5.5"/>
+          </svg>
+        </span>
+        <p class="stat__ok">已避開火源</p>
+      </div>
+      <!-- 遙控大螢幕的兩顆按鈕：▶ 展示（重跑這一條）／⇄ 切換（換一條）。
+           對應大螢幕上那兩顆「展示逃生動線」「切換逃生動線」，同一個 playRouteDemo()。
+           ⚠️ 放在**最下面這張統計卡裡面**當第三格，不是自己一列。
+              這一頁（.pad__notice）扣掉四張卡之後只剩 1.53rem 的餘裕，
+              2.2rem 的按鈕自己排一列會滿出去約 22px —— 而且是**靜靜被裁掉**，
+              因為區塊是 flex:1; min-height:0。統計卡本身有 7rem 高，塞進去不佔額外高度。
+           ⚠️ 只放 icon（使用者要求），文字留在 title / aria-label，不要拿掉。 -->
+      <div class="nacts">
+        <button class="nact" id="n-play" type="button"
+                title="展示這一條逃生動線" aria-label="展示這一條逃生動線">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="nact__solid" d="M8.6 5.4 19 12 8.6 18.6Z"/></svg>
+        </button>
+        <button class="nact" id="n-next" type="button"
+                title="切換到另一條逃生動線" aria-label="切換到另一條逃生動線">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 8.6h11.8M12.4 5.6l3 3-3 3M20.4 15.4H8.6M11.6 12.4l-3 3 3 3"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- 手動操作（待機頁點一下、警報頁往上滑）沒連上大螢幕時跳出來的提示。
+       ⚠️ 這個**不是裝飾**。上面那三頁（待機／警報／App）的狀態列刻意把
+       「已連線」的文字藏起來了（要像手機鎖屏），沒連上時只剩一個很小的訊號圖示在閃 ——
+       現場根本看不出來。而 drive() 沒連上也會照樣換本機畫面，於是「大螢幕沒跟著動」
+       會被誤判成程式壞了。這行字就是要把那個情況講明白。
+       ⚠️ 放在 .pad__main 裡面，因為它已經是 position:relative。掛到 body 底下就得
+          替 body 加定位，那會改掉其他絕對定位元素的參考框。 -->
+  <p class="pad__toast" id="toast" role="status" aria-live="polite"></p>
 </main>
+
 
 <footer class="pad__foot">
   <span id="foot">火災無情 · 預防先行</span>

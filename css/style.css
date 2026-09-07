@@ -851,7 +851,7 @@ svg{display:block}
   opacity:.7;
   text-align:center;
 }
-/* 整句都是主色。<b>（「寶鋪」）保留著，之後想讓品牌名跳出來改這一行就好 */
+/* 整句都是主色。<b>（「寶舖」）保留著，之後想讓品牌名跳出來改這一行就好 */
 .intro__sign b{font-weight:inherit;color:inherit}
 
 @media (prefers-reduced-motion:reduce){

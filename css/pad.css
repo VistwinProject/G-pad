@@ -1,10 +1,11 @@
 /* =========================================================================
-   住戶端 Pad（pad.html）
+   住戶端 Pad
    色票沿用 style.css 的 :root，版面這裡自己來。
    ⚠️ style.css 的 html{font-size} 是給 1920×1080 看板算的（取 vw/vh 較小者），
       Pad 直向的時候會算出很小的 rem，所以這裡整支蓋掉，改用**版面盒子的寬度**為基準。
-   ⚠️ 四個狀態（safe / alarm / guide / clear）全部靠 body[data-state] 換，
-      js 只改那一個屬性和幾段文字，不動結構。
+   ⚠️ 配色靠 body[data-state]（safe / alarm / guide / clear），
+      版面靠 body[data-view]（plain 燈號大字 ／ notice 前往 X 出口）。
+      js 只改這兩個屬性和幾段文字，不動結構。
    ========================================================================= */
 /* 版面固定在實機的長寬比（寬 17.75 : 高 24.97，直向），視窗比例不對就自動留邊。
    這樣在筆電的瀏覽器上看到的排版，就跟平板上一模一樣，不用兩邊各調一次。
@@ -37,9 +38,20 @@ body.pad{
   -webkit-user-select:none;user-select:none;
   -webkit-tap-highlight-color:transparent;
 }
+/* 桌布：待機頁和警報頁共用**同一張圖**，警報頁靠 background-blend-mode 把它染紅，
+   不用另外準備一張紅色版。換圖只改這一行。
+   ⚠️ 圖檔還沒放進 assets/ 的時候 url() 會載入失敗，那幾層漸層就是它的替代品 ——
+      畫面不會壞掉，只是沒有桌布而已。 */
+body.pad{ --wallpaper:url("../assets/wallpaper.jpg") }
+/* ⚠️ 桌布是 **jpg** 不是 png。這張圖幾乎整片都是平滑漸層，png 存出來 6.1MB、
+   jpg（q92）只有 403KB，畫質看不出差別（原圖本身有一層顆粒，剛好幫忙打散色階）。
+   尺寸 1640px 寬 = 版面盒子 820px 的兩倍，retina 平板也夠清楚。 */
+
 body.pad[data-state="safe"] { --tone:var(--brand-hi) }
 body.pad[data-state="alarm"]{ --tone:var(--red) }
-body.pad[data-state="guide"]{ --tone:var(--amber) }
+/* ⚠️ 逃生指引是**亮藍**不是琥珀 ——「前往 X 出口」整頁以亮藍為主，琥珀留給警語。
+   （UI-SPEC §5 舊版寫的是琥珀，已一併改掉。） */
+body.pad[data-state="guide"]{ --tone:var(--brand-hi) }
 body.pad[data-state="clear"]{ --tone:var(--exit) }
 
 /* ---------- 上下兩條 ---------- */
@@ -48,8 +60,10 @@ body.pad[data-state="clear"]{ --tone:var(--exit) }
   padding:1.1rem 1.6rem;
   font-size:.82rem;letter-spacing:.22em;color:var(--ink-3);
 }
-.pad__foot{justify-content:center;letter-spacing:.3em}
+.pad__foot{justify-content:center;letter-spacing:.3em;text-align:center;line-height:1.5}
 .pad__brand{font-family:"Oswald",sans-serif}
+.pad__stat{display:flex;align-items:center;gap:.85rem;margin-left:auto}   /* 左邊的東西藏起來時也要靠右 */
+.pad__time{display:none;font-size:.95rem;letter-spacing:.04em;color:var(--ink)}
 
 /* 連線指示：亮點 + 文字。斷線時轉紅並閃爍，現場一眼看得出來是不是還連著 */
 .pad__link{display:flex;align-items:center;gap:.5rem;font-size:.78rem;letter-spacing:.14em}
@@ -62,9 +76,383 @@ body.pad[data-state="clear"]{ --tone:var(--exit) }
 .pad__link[data-ok="1"]{color:var(--ink-2)}
 @keyframes padBlink{ 0%,50%{opacity:1} 50.01%,100%{opacity:.15} }
 
-/* ---------- 中間 ---------- */
-.pad__main{
-  flex:1;min-height:0;
+/* 待機頁／警報頁的狀態列：訊號 / 電量。其他頁不出現。
+   （鎖頭在版面正中間，是 .lock__icon，不在這一條上）
+   ⚠️ 這兩個圖示一律**白色單色**（都是 --ink，只用透明度分層次），
+      跟手機狀態列一樣。不要為了狀態去換色 —— 見下面訊號那一段。 */
+.pad__wifi,.pad__batt{display:none}
+.pad__wifi{width:1.35rem;height:auto;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
+.pad__wifi .wifi__dot{fill:currentColor;stroke:none}
+.pad__batt{align-items:center;gap:.45rem;font-size:.82rem;letter-spacing:.04em;color:var(--ink)}
+.pad__batt .batt__box{
+  position:relative;display:block;width:1.55rem;height:.82rem;
+  /* 外框用半透明的白、裡面填實心白 —— 兩個都全白會變成一塊白磚，看不出是電池 */
+  border:1px solid color-mix(in srgb, var(--ink) 48%, transparent);
+  border-radius:.22rem;padding:.1rem;
+}
+.pad__batt .batt__box::after{                        /* 右邊那個小凸點 */
+  content:"";position:absolute;left:100%;top:50%;translate:.06rem -50%;
+  width:.11rem;height:.34rem;border-radius:0 .1rem .1rem 0;
+  background:color-mix(in srgb, var(--ink) 48%, transparent);
+}
+.pad__batt .batt__box i{
+  display:block;height:100%;border-radius:.1rem;
+  width:calc(var(--lv, 1) * 100%);background:var(--ink);
+}
+/* 待機頁和警報頁都是鎖屏的樣子，狀態列只留訊號和電量。
+   （鎖頭在版面正中間，是 .lock__icon，兩頁共用，不在這一條上） */
+body.pad:is([data-view="idle"],[data-view="alarm"],[data-view="app"]) .pad__brand{display:none}
+body.pad[data-view="app"] .pad__time{display:block}
+body.pad:is([data-view="idle"],[data-view="alarm"],[data-view="app"]) .pad__batt{display:flex}
+body.pad:is([data-view="idle"],[data-view="alarm"],[data-view="app"]) .pad__link i,
+body.pad:is([data-view="idle"],[data-view="alarm"],[data-view="app"]) .pad__link b{display:none}
+body.pad:is([data-view="idle"],[data-view="alarm"],[data-view="app"]) .pad__wifi{display:block;color:var(--ink)}
+/* 沒連上大螢幕的時候**還是白色**，改用閃爍表示。
+   ⚠️ 不要拿掉這個閃爍：現場要一眼看得出這台還連著沒有，這兩頁的訊號圖示是唯一的提示。
+      （以前是轉紅，但紅色在警報頁的紅底上根本看不到，而且狀態列要白色單色。） */
+body.pad:is([data-view="idle"],[data-view="alarm"],[data-view="app"]) .pad__link[data-ok="0"] .pad__wifi{
+  animation:padBlink 1s steps(1,end) infinite;
+}
+body.pad:is([data-view="idle"],[data-view="alarm"],[data-view="app"]) .pad__foot{visibility:hidden}
+
+/* ---------- 中間：五種版面五選一 ---------- */
+.pad__main{flex:1;min-height:0;display:flex;flex-direction:column}
+.pad__idle,.pad__alarm,.pad__app,.pad__plain,.pad__notice{flex:1;min-height:0}
+body.pad:not([data-view="idle"])   .pad__idle  {display:none}
+body.pad:not([data-view="alarm"])  .pad__alarm {display:none}
+body.pad:not([data-view="app"])    .pad__app   {display:none}
+body.pad:not([data-view="plain"])  .pad__plain {display:none}
+body.pad:not([data-view="notice"]) .pad__notice{display:none}
+
+/* ============ idle ＋ alarm：兩頁共用的鎖屏版面 ============
+   待機和警報是**同一個版面**，只有配色和那則通知不同 ——
+   就像手機鎖屏，平常空著，有事就跳一則通知出來。
+   ⚠️ 要改版面請兩頁一起改；下面的 .lock__* 和 .alert 是兩頁共用的。 */
+.pad__idle,.pad__alarm{
+  display:flex;flex-direction:column;align-items:center;
+  padding:1.2rem 1.5rem 1rem;text-align:center;
+}
+
+.lock__icon{display:block;width:1.55rem;color:var(--ink);margin-bottom:1.5rem}
+.lock__icon svg{display:block;width:100%;height:auto;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+.lock__clock{
+  margin:0;font-size:5.6rem;font-weight:300;line-height:1;letter-spacing:.01em;color:var(--ink);
+}
+.lock__clock em{font-style:normal;opacity:.8;margin:0 .02em}
+.lock__date{
+  margin:.85rem 0 0;display:flex;align-items:center;justify-content:center;gap:.85rem;
+  font-size:1.62rem;font-weight:500;letter-spacing:.06em;color:var(--ink);
+}
+.lock__system{
+  margin:.6rem 0 0;font-size:1.02rem;font-weight:400;letter-spacing:.14em;text-indent:.14em;
+  color:color-mix(in srgb, var(--ink) 62%, transparent);
+}
+.lock__home{
+  display:block;width:8.5rem;height:.28rem;border-radius:.28rem;flex:none;
+  background:color-mix(in srgb, var(--ink) 62%, transparent);
+}
+
+/* ---------- 通知卡（兩頁共用） ----------
+   ⚠️ 淺色是刻意的：深色底上跳一張白卡，就是手機鎖屏收到通知的樣子。
+      不要為了「配合深色主題」把它改成深色，那樣就融進背景裡了。 */
+.alert{
+  width:100%;margin-top:2.2rem;text-align:left;flex:none;
+  padding:1.15rem 1.3rem 1.3rem;border-radius:1.1rem;
+  background:rgba(243,243,246,.94);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  box-shadow:0 1.2rem 2.6rem rgba(0,0,0,.34);
+  color:#1c1c1e;
+}
+/* 警報那則通知的**白色面板本身**在呼吸（明暗），背景不動。
+   ⚠️ 用 filter:brightness 而不是去調底色的透明度：
+      透明度一降，紅色背景就會透上來，深色的字對比反而變差。
+      brightness 壓暗時面板從白變淺灰、黑字還是黑字，對比不會掉 ——
+      那些字是要照著逃命的，任何亮度下都得看得清楚。 */
+body.pad[data-view="alarm"] .alert{animation:panelBreathe 2.6s ease-in-out infinite}
+@keyframes panelBreathe{
+  0%,100%{ filter:brightness(.80) }
+  50%    { filter:brightness(1.06) }
+}
+
+.alert__head{
+  margin:0 0 .7rem;display:flex;align-items:center;gap:.5rem;
+  font-size:.98rem;letter-spacing:.04em;
+}
+.alert__badge{display:block;width:1.15rem;flex:none;color:#e8a01a}
+.alert__badge svg{display:block;width:100%;height:auto;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round;stroke-linecap:round}
+.alert__badge circle{fill:currentColor;stroke:none}
+.alert__head b{font-weight:500;color:#3a3a3c}
+.alert__head i{margin-left:auto;font-style:normal;font-weight:400;color:#8e8e93}
+.alert__title{margin:0;font-size:1.42rem;font-weight:700;letter-spacing:.02em;color:#000}
+.alert__body{
+  margin:.55rem 0 0;font-size:1.06rem;font-weight:400;line-height:1.62;letter-spacing:.01em;
+  color:#1c1c1e;
+}
+.alert__en{
+  margin:.55rem 0 0;font-size:.92rem;font-weight:400;line-height:1.45;letter-spacing:.01em;
+  color:#8e8e93;
+}
+
+/* ---------- 待機頁：藍色的底 ----------
+   跟下面警報頁那層紅色是對稱的寫法，換頁時只是同一張壁紙換色。 */
+body.pad[data-view="idle"]{
+  background:
+    /* 壓暗層：桌布那個「A」的亮線正好穿過時間和下緣提示的位置，
+       不壓暗的話白字會疊在亮線上看不清楚。中段留亮，圖才看得到。 */
+    linear-gradient(180deg,
+      rgba(3,11,26,.74) 0%, rgba(3,11,26,.34) 24%,
+      rgba(3,11,26,.10) 50%, rgba(3,11,26,.52) 86%, rgba(3,11,26,.76) 100%),
+    var(--wallpaper) center / cover no-repeat,
+    radial-gradient(66% 50% at 68% 72%, rgba(74,158,255,.30), transparent 62%),
+    radial-gradient(76% 56% at 20% 30%, rgba(30,92,180,.26), transparent 66%),
+    radial-gradient(130% 95% at 50% 52%, rgba(10,42,92,.40), transparent 72%),
+    linear-gradient(165deg, #0b2144 0%, #071630 52%, #030b1a 100%);
+}
+
+/* ---------- 警報頁：整片轉紅 ----------
+   底色用專案紅色情境那一組，跟大螢幕跑動線時整個介面轉紅是同一個語彙。 */
+body.pad[data-view="alarm"]{
+  background:
+    /* 壓暗層（跟待機頁同一組，只是換成紅底色） */
+    linear-gradient(180deg,
+      rgba(13,2,5,.72) 0%, rgba(13,2,5,.32) 24%,
+      rgba(13,2,5,.10) 50%, rgba(13,2,5,.50) 86%, rgba(13,2,5,.74) 100%),
+    /* 染色層：background-blend-mode 的 color 取這一層的色相與彩度、保留下面的明暗，
+       所以同一張藍色桌布會變成紅色的，亮暗結構完全不變 —— 不用另外準備一張紅圖。 */
+    linear-gradient(180deg, rgba(196,28,36,.95), rgba(150,14,24,.95)),
+    var(--wallpaper) center / cover no-repeat,
+    radial-gradient(68% 52% at 76% 16%, rgba(255,74,61,.40), transparent 62%),
+    radial-gradient(78% 58% at 16% 74%, rgba(190,22,38,.36), transparent 66%),
+    radial-gradient(130% 95% at 50% 48%, rgba(120,10,22,.46), transparent 72%),
+    linear-gradient(165deg, #3a0d0e 0%, #1c0507 52%, #0d0205 100%);
+  background-blend-mode: normal, color, normal, normal, normal, normal, normal;
+}
+
+/* 「向上滑動以查看」：兩頁都有，靠 margin-top:auto 壓到最下面。
+   待機頁中間是空的，這一條就把空白吃掉，版面才不會浮在上半部。 */
+.lock__more{
+  margin:auto 0 .9rem;font-size:.98rem;letter-spacing:.16em;text-indent:.16em;
+  color:color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+/* 警報跳出來的那一下：通知卡彈進來 + 整個版面被「敲」一下。
+   這是**觸感回饋的視覺版** —— 短促的一下，不是警報器那種長時間亂晃。
+   ⚠️ 沒有震動硬體、或瀏覽器還沒拿到使用者互動時 navigator.vibrate 會直接失效，
+      這一段是那時候唯一看得出來的提示，不要拿掉。 */
+/* 進場彈入和呼吸要**並存**：只寫 alertIn 的話，那 0.34 秒的呼吸會被整個蓋掉 */
+body.pad.is-buzz .alert{animation:alertIn .34s var(--ease), panelBreathe 2.6s ease-in-out infinite}
+@keyframes alertIn{
+  0%  {opacity:0;translate:0 -.7rem;scale:.97}
+  60% {opacity:1;scale:1.008}
+  100%{opacity:1;translate:0 0;scale:1}
+}
+body.pad.is-buzz{animation:padTap .2s ease-out}
+@keyframes padTap{
+  0%,100%{translate:0 0}
+  35%    {translate:0 -2px}
+  70%    {translate:0 1px}
+}
+
+/* ======================= app：雲端宅邸 App ======================= */
+body.pad[data-view="app"]{
+  background:
+    radial-gradient(60% 42% at 78% 8%, rgba(74,158,255,.24), transparent 64%),
+    radial-gradient(80% 55% at 12% 62%, rgba(24,80,166,.22), transparent 68%),
+    linear-gradient(168deg, #071c38 0%, #051327 46%, #020a16 100%);
+}
+/* ⚠️ 這一頁跟其他頁一樣「一定要塞進一畫面」，整頁不捲。
+      可以滑動的是**主視覺那張圖**（見 .app__pic），不是整頁。
+   ⚠️ 內容幾乎塞滿，加東西或放大字之前先量一次 —— 量法見下面那段。 */
+.pad__app{
+  display:flex;flex-direction:column;
+  padding:.4rem 1.35rem .6rem;
+}
+
+/* ---------- 品牌列 ---------- */
+.app__bar{flex:none;display:flex;align-items:center;gap:.75rem}
+.app__logo{display:block;width:2.5rem;flex:none;color:var(--brand-hi)}
+.app__logo svg{display:block;width:100%;height:auto;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.app__name{display:flex;flex-direction:column;gap:.1rem;margin-right:auto}
+.app__name b{font-size:1.62rem;font-weight:700;letter-spacing:.1em;color:var(--ink)}
+.app__name i{
+  font-family:"Oswald",sans-serif;font-style:normal;
+  font-size:.62rem;font-weight:400;letter-spacing:.34em;color:var(--ink-3);
+}
+.app__user{display:block;width:2.4rem;flex:none;color:var(--brand-hi)}
+.app__user svg{display:block;width:100%;height:auto;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round}
+
+/* ---------- 主視覺 ---------- */
+.app__hero{flex:none;position:relative;margin-top:.5rem}
+.app__aside{
+  position:absolute;top:.1rem;right:0;margin:0;text-align:right;
+  font-size:.78rem;font-weight:400;line-height:1.75;letter-spacing:.16em;color:var(--ink-3);
+}
+.app__aside span{display:block;width:2rem;height:1px;background:var(--ink-3);margin:.4rem 0 0 auto}
+.app__title{
+  margin:0;text-align:center;
+  font-size:2.4rem;font-weight:700;letter-spacing:.04em;line-height:1.25;color:var(--ink);
+  text-shadow:0 0 2rem rgba(47,157,255,.4);
+}
+.app__title b{font-weight:700;color:var(--brand-hi)}
+.app__rule{
+  margin:.5rem 0 0;display:flex;align-items:center;justify-content:center;gap:.8rem;
+  font-size:.95rem;font-weight:400;letter-spacing:.3em;text-indent:.3em;color:var(--ink-2);
+}
+.app__rule span{display:block;width:2.2rem;height:1px;background:var(--ink-3)}
+
+/* 主視覺四周的小字。絕對定位疊在 .app__hero 上面，所以不佔高度 ——
+   這一頁的垂直空間是零餘裕的，加東西前記得看 §5.3c 的量測方式。 */
+.app__mark{
+  position:absolute;margin:0;pointer-events:none;
+  font-size:.72rem;font-weight:400;line-height:2;letter-spacing:.24em;
+  color:color-mix(in srgb, var(--ink-3) 96%, transparent);
+  /* ⚠️ 這幾組字疊在主視覺上，而主視覺**可以上下滑**，所以底下是亮牆還是暗天空
+     是會變的 —— 不能靠固定位置的壓暗。改用一圈厚的暗影把字圈起來，
+     滑到任何位置都讀得到。淡的單層陰影在亮牆上會直接消失。 */
+  text-shadow:
+    0 0 .3rem  #020a16,
+    0 0 .6rem  #020a16,
+    0 0 1.1rem rgba(2,10,22,.95),
+    0 0 2rem   rgba(2,10,22,.75);
+}
+.app__mark span{display:block;width:1.8rem;height:1px;background:var(--ink-3);margin-top:.5rem}
+.app__mark--tl{left:0;top:5.4rem;font-family:"Oswald",sans-serif}
+.app__mark--mr{right:0;top:8.6rem;text-align:right;letter-spacing:.3em}
+.app__mark--mr span{margin-left:auto}
+.app__mark--br{
+  right:0;bottom:.1rem;text-align:right;font-family:"Oswald",sans-serif;
+  letter-spacing:.2em;line-height:1.8;
+}
+/* 建物那張圖：上下用遮罩淡出，跟頁面底色接起來看不出邊 */
+.app__pic{
+  /* 主視覺：大樓的藍色線稿（assets/residence.jpg，1199×1312）。
+     ⚠️ 原圖幾乎是正方形（0.914），版面這個槽位是寬扁的（約 2.4:1），
+        所以是用 cover **裁一條橫帶**出來。position 的 22% 是刻意的 ——
+        對到屋頂花園和頂樓那幾層，那一段最好看；置中或靠上都會切到天空。
+     ⚠️ 這張圖不透明，左右出血到版面邊緣，靠它自己的深藍底跟頁面接。
+        上下用 mask 淡出；淡出的範圍不要再縮小，不然會看到硬邊。 */
+  /* 這個是**框**（看得到的那個橫帶），出血到版面邊緣。
+     ⚠️ 框本身要被 max-height 壓住 —— 這一頁還是得塞進一畫面。
+     ⚠️ 框是捲動容器：裡面的 .app__picinner 照整張圖的比例、比框高，
+        所以可以上下滑動看整棟樓。捲軸藏起來，但滑得動。 */
+  margin:.2rem -1.35rem 0;width:calc(100% + 2.7rem);
+  aspect-ratio:1200 / 670;max-height:19.9rem;
+  overflow-y:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  /* ⚠️ 下緣的淡出從 78% 就開始（不是 90%）：這張圖整個下半部都是亮的大樓外牆，
+     右下角那組「A SAFER LIFE / AT HOME」壓在上面會看不見。淡出順便當它的底。 */
+  -webkit-mask-image:linear-gradient(180deg, transparent 0%, #000 8%, #000 78%, transparent 100%);
+          mask-image:linear-gradient(180deg, transparent 0%, #000 8%, #000 78%, transparent 100%);
+}
+.app__pic::-webkit-scrollbar{display:none}
+/* 內層：整張圖的比例（1199×1312），比框高很多，多出來的就是可以滑的範圍 */
+.app__picinner{
+  display:block;width:100%;aspect-ratio:1199 / 1312;
+  background:url("../assets/residence.jpg") center top / 100% auto no-repeat;
+}
+
+/* ---------- 居家狀態卡 ---------- */
+.app__card{
+  flex:none;position:relative;margin-top:.45rem;
+  display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:1rem;
+  padding:.95rem 1.2rem .9rem;border-radius:.9rem;
+  border:1px solid var(--brand-line);
+  background:color-mix(in srgb, var(--bg-2) 40%, transparent);
+}
+.app__shield{display:block;width:3.1rem;color:var(--brand-hi)}
+.app__shield svg{
+  display:block;width:100%;height:auto;fill:none;stroke:currentColor;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round;
+  filter:drop-shadow(0 0 .7rem color-mix(in srgb, var(--brand-hi) 45%, transparent));
+}
+.app__cardtext{display:flex;flex-direction:column;gap:.25rem;min-width:0}
+.app__cardtext b{font-size:1.72rem;font-weight:700;letter-spacing:.08em;color:var(--ink)}
+.app__cardtext i{font-style:normal;font-size:1.02rem;font-weight:400;letter-spacing:.12em;color:var(--ink-2)}
+.app__more{display:block;width:.62rem;color:var(--ink-3)}
+.app__more svg{display:block;width:100%;height:auto;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.app__slogan{
+  grid-column:1 / -1;margin:.7rem 0 0;padding-top:.7rem;
+  border-top:1px solid color-mix(in srgb, var(--brand-line) 70%, transparent);
+  text-align:center;font-size:.92rem;letter-spacing:.2em;text-indent:.2em;color:var(--ink-2);
+}
+
+/* ---------- 三張狀態磚 ---------- */
+.app__tiles{flex:none;display:flex;gap:.6rem;margin-top:.5rem}
+.atile{
+  flex:1;min-width:0;
+  padding:.8rem .85rem .85rem;border-radius:.8rem;
+  border:1px solid var(--brand-line);
+  background:color-mix(in srgb, var(--bg-2) 34%, transparent);
+}
+.atile__icon{display:block;width:1.85rem;color:var(--brand-hi);margin-bottom:.55rem}
+.atile__icon svg{display:block;width:100%;height:auto;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.atile__label{margin:0;font-size:.95rem;font-weight:400;letter-spacing:.08em;color:var(--ink-2)}
+.atile__value{
+  margin:.2rem 0 0;display:flex;align-items:center;gap:.4rem;
+  font-size:1.28rem;font-weight:700;letter-spacing:.06em;color:var(--brand-hi);
+}
+.atile__value span{display:block;width:.5rem;margin-left:auto;color:var(--ink-3)}
+.atile__value svg{display:block;width:100%;height:auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- 三顆功能 ---------- */
+.app__acts{
+  flex:none;display:flex;margin-top:.5rem;
+  border-radius:.8rem;border:1px solid var(--brand-line);
+  background:color-mix(in srgb, var(--bg-2) 34%, transparent);
+}
+.aact{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:.45rem;
+  padding:.75rem .4rem .8rem;
+  font-size:1.02rem;letter-spacing:.1em;color:var(--ink);
+  /* ⚠️ 「逃生指引」那一顆是真的 <button>，其餘兩顆是 <div>。這幾行是把按鈕的
+     預設外觀清掉，讓三顆長得一模一樣 —— 少了 font:inherit 按鈕會掉回瀏覽器
+     的預設字型和字級，三顆就會不齊。 */
+  margin:0;border:0;background:none;font-family:inherit;font-weight:inherit;
+  text-align:center;-webkit-appearance:none;appearance:none;
+}
+/* 真的能按的那一顆：給一點可按的暗示，按下去縮一下 */
+.aact--live{cursor:pointer;transition:color .18s var(--ease), transform .12s var(--ease)}
+.aact--live:active{transform:scale(.94)}
+.aact--live:focus-visible{outline:2px solid var(--brand-hi);outline-offset:3px;border-radius:.5rem}
+.aact + .aact{border-left:1px solid color-mix(in srgb, var(--brand-line) 70%, transparent)}
+.aact span{display:block;width:1.85rem;color:var(--brand-hi)}
+.aact svg{display:block;width:100%;height:auto;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- 頁尾 ---------- */
+.app__foot{
+  margin:auto 0 0;display:flex;flex-direction:column;align-items:center;gap:.22rem;padding-top:.35rem;
+}
+.app__foot b{font-size:.92rem;font-weight:400;letter-spacing:.24em;text-indent:.24em;color:var(--ink-3)}
+.app__foot i{
+  font-family:"Oswald",sans-serif;font-style:normal;
+  font-size:.62rem;font-weight:400;letter-spacing:.34em;color:color-mix(in srgb, var(--ink-3) 62%, transparent);
+}
+
+/* ---------- 從警報頁「向上滑動」帶出這一頁 ----------
+   ⚠️ 兩個版面平常是 display:none 互斥的，動畫期間要讓警報頁**留在畫面上**才滑得出去，
+      所以 .is-swipe 的時候把它改成 position:absolute 疊在上面
+      （不然兩段會上下排成一列，畫面會擠壞）。
+   ⚠️ 只有「警報 → app」這一個方向要滑。其他換頁都是直接切 ——
+      主展示端每秒補推一次狀態，每次都滑一遍會很吵。 */
+.pad__main{position:relative}
+body.pad.is-swipe .pad__alarm{
+  display:flex;position:absolute;inset:0;z-index:2;
+  animation:swipeOut .58s var(--ease) forwards;
+}
+body.pad.is-swipe .pad__app{animation:swipeIn .58s var(--ease)}
+@keyframes swipeOut{
+  from{ translate:0 0;     opacity:1 }
+  to  { translate:0 -100%; opacity:0 }
+}
+@keyframes swipeIn{
+  from{ translate:0 34%; opacity:0 }
+  to  { translate:0 0;   opacity:1 }
+}
+
+/* ======================= plain：燈號 + 大字 ======================= */
+.pad__plain{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:1.1rem;padding:1rem 1.6rem;text-align:center;
 }
@@ -111,40 +499,243 @@ body.pad[data-state="alarm"] .pad__title{ animation:padBreath 1.2s var(--ease) i
   color:var(--ink-2);max-width:26rem;
 }
 
-/* ---------- 逃生指引（只有 aiRoute 顯示） ---------- */
-.pad__route{width:100%;max-width:30rem;margin-top:.8rem}
-.pad__steps{
-  list-style:none;margin:0;padding:0;
-  display:flex;align-items:stretch;justify-content:center;gap:.5rem;
-}
-.pad__steps li{
-  flex:1;display:flex;flex-direction:column;align-items:center;gap:.5rem;
-  padding:.9rem .4rem;
-  font-size:.92rem;letter-spacing:.08em;color:var(--ink-2);
-  border:1px solid var(--brand-line);border-radius:.5rem;
-  background:color-mix(in srgb, var(--tone) 6%, transparent);
+/* ======================= notice：前往 X 出口 ======================= */
+.pad__notice{
+  /* position:relative 是給右上角那兩顆遙控按鈕（.nacts）當定位參考框用的。
+     ⚠️ 平面圖上的圖釘和小人是以 .plan__box 為參考框（它自己有 position:relative），
+        所以這一行不會動到它們。 */
   position:relative;
+  display:flex;flex-direction:column;justify-content:center;
+  gap:1.35rem;padding:.4rem 1.7rem 1rem;
 }
-/* 步驟之間的箭頭 */
-.pad__steps li + li::before{
-  content:"";position:absolute;left:-.5rem;top:50%;translate:0 -50%;
-  width:.5rem;height:1px;background:var(--tone);opacity:.6;
+
+/* ---------- 抬頭 ---------- */
+.notice__head{
+  flex:none;display:flex;align-items:center;justify-content:center;gap:1rem;
+  margin-bottom:.45rem;
 }
-.pad__steps li span{
-  width:1.7rem;height:1.7rem;flex:none;
-  display:grid;place-items:center;border-radius:50%;
-  font-family:"Oswald",sans-serif;font-size:.9rem;
-  color:var(--bg-0);background:var(--ink-3);
+.notice__flame{flex:none;display:block;width:2.9rem;color:var(--red)}
+.notice__flame svg{display:block;width:100%;height:auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.notice__flame .flame__fire{fill:currentColor;stroke:none}
+.notice__headtext{display:flex;flex-direction:column;gap:.22rem}
+.notice__headtext b{font-size:1.5rem;font-weight:700;letter-spacing:.16em;color:var(--ink)}
+.notice__headtext i{
+  font-family:"Oswald",sans-serif;font-style:normal;
+  font-size:.66rem;font-weight:400;letter-spacing:.4em;color:var(--ink-3);
 }
-.pad__steps .is-goal{
-  border-color:var(--tone);
-  background:color-mix(in srgb, var(--tone) 14%, transparent);
-  color:var(--ink);
+
+/* ---------- 三張卡共用 ---------- */
+.ncard{
+  flex:none;
+  border:1px solid var(--brand-line);border-radius:1.15rem;
+  background:
+    radial-gradient(120% 140% at 50% 0%, color-mix(in srgb, var(--tone) 5%, transparent), transparent 70%),
+    color-mix(in srgb, var(--bg-2) 42%, transparent);
 }
-.pad__steps .is-goal span{background:var(--tone);color:var(--bg-0)}
-.pad__steps .is-goal b{font-size:1.15rem;letter-spacing:.06em}
+
+/* ---------- 出口指示 ---------- */
+.ncard--exit{display:flex;align-items:center;gap:1.4rem;padding:1.5rem 1.6rem}
+.ncard__icon{flex:none;display:block;width:3.3rem;color:var(--ink-2)}
+.ncard__icon svg{display:block;width:100%;height:auto;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.ncard__body{min-width:0}
+.exit__title{
+  margin:0;font-size:2.15rem;font-weight:700;letter-spacing:.06em;line-height:1.25;color:var(--ink);
+}
+.exit__title b{
+  font-size:1.3em;font-weight:700;color:var(--tone);padding:0 .06em;
+  text-shadow:0 0 1.6rem color-mix(in srgb, var(--tone) 55%, transparent);
+}
+.exit__why{
+  margin:.5rem 0 0;font-size:.95rem;font-weight:400;letter-spacing:.06em;line-height:1.6;
+  color:var(--ink-2);
+}
+
+/* ---------- 迷你平面圖 ---------- */
+.ncard--plan{padding:1.15rem}
+/* ⚠️ 長寬比要跟 js/plan.js 的 ASPECT 一致（2.25）。
+   不一致的話 SVG 會在盒子裡留邊，用百分比定位的標籤就對不到圖上的點。 */
+.plan__box{
+  position:relative;width:100%;aspect-ratio:2.25;border-radius:.5rem;overflow:hidden;
+  /* 藍色的底，中間亮一點，像打光的藍圖 */
+  background:
+    radial-gradient(120% 150% at 38% 42%, color-mix(in srgb, var(--brand) 26%, transparent), transparent 70%),
+    linear-gradient(160deg, #0a1f38 0%, #061527 55%, #04101f 100%);
+}
+.plan{position:absolute;inset:0;width:100%;height:100%}
+
+/* 底圖＝模型的俯視投影，畫成藍圖那樣的**線稿**。
+   輪廓本來就是牆的兩側，描邊出來自然是雙線的牆，跟建築平面圖一樣。
+   ⚠️ 線寬一律 non-scaling-stroke —— 每條動線的縮放倍率不同，
+      不然同一道牆換條動線就忽粗忽細。 */
+.plan__base .pb{
+  fill:none;stroke:var(--brand-hi);vector-effect:non-scaling-stroke;
+  stroke-linejoin:round;
+}
+.pb--slab {stroke-width:1.3px;opacity:.5}    /* 樓板外框＝建物輪廓，最亮 */
+.pb--wall {stroke-width:.9px;opacity:.42}
+.pb--core {stroke-width:.9px;opacity:.42}
+.pb--col  {stroke-width:.9px;opacity:.5}
+.pb--stair{stroke-width:.8px;opacity:.3}
+.pb--win  {stroke-width:.8px;opacity:.34}
+
+/* ---------- 動線 ----------
+   走過的畫實線、還沒走的畫虛線，兩段是 js 依小人的位置切出來的兩條 path。
+   ⚠️ 顏色不跟 --tone（那是整頁的狀態色，藍）—— 動線用紅的，跟大螢幕上跑動線時
+      整個介面轉紅是同一個語彙。通關之後才轉綠。 */
+body.pad{ --route:var(--red) }
+body.pad[data-state="clear"]{ --route:var(--exit) }
+
+.plan__ahead{                                  /* 還沒走到的：虛線、淡一點 */
+  fill:none;stroke:var(--route);stroke-width:2.4px;opacity:.5;
+  stroke-dasharray:5 5;
+  stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;
+}
+.plan__halo{                                   /* 走過的：先鋪一層暈開的粗線 */
+  fill:none;stroke:var(--route);stroke-width:11px;opacity:.18;
+  stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;
+}
+.plan__line{                                   /* 走過的：再壓一條實心細線 */
+  fill:none;stroke:var(--route);stroke-width:3.2px;
+  stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;
+  filter:drop-shadow(0 0 .35rem var(--route));
+}
+
+/* 起點／終點的點和標籤。left/top 由 js 用百分比塞進 style，
+   data-h / data-v 決定標籤往哪邊長，免得長到圖的外面去。 */
+.plan__pin{position:absolute;translate:-50% -50%}
+/* 起點／終點的點跟著動線走 --route，不是整頁的 --tone ——
+   紅線兩頭掛藍點會看起來像兩件不相干的東西 */
+.plan__pin i{
+  display:block;width:.95rem;height:.95rem;border-radius:50%;
+  background:var(--route);
+  box-shadow:0 0 0 .28rem color-mix(in srgb, var(--route) 26%, transparent), 0 0 .9rem var(--route);
+}
+.plan__pin b{
+  position:absolute;display:flex;align-items:center;gap:.5rem;white-space:nowrap;
+  font-size:.85rem;font-weight:500;letter-spacing:.08em;color:var(--route);
+}
+.plan__pin--goal i{width:.78rem;height:.78rem}
+.plan__pin--goal b{color:var(--ink);font-weight:700}
+.plan__pin--goal em{
+  font-style:normal;font-size:.72rem;font-weight:500;letter-spacing:.1em;
+  color:var(--exit);
+  padding:.16rem .5rem;border-radius:.4rem;
+  border:1px solid color-mix(in srgb, var(--exit) 45%, transparent);
+  background:color-mix(in srgb, var(--exit) 12%, transparent);
+}
+/* 小人：跟大螢幕的小人跑在同一個進度上。left/top 由 js 每一格更新，
+   ⚠️ 不要加 transition —— 位置本來就是每一格算好的，再補間會變成「慢半拍」，
+      跟大螢幕就對不起來了。 */
+/* 小人是**白色實心**的逃生標誌小人。
+   ⚠️ 不要跟著 --route 用紅色 —— 小人正踩在紅色動線上，同色就融進去看不到人了。
+      白色在藍圖和紅線上都跳得出來。 */
+.plan__walker{
+  position:absolute;translate:-50% -50%;
+  display:block;width:1.7rem;color:#fff;
+  filter:drop-shadow(0 0 .5rem color-mix(in srgb, var(--route) 75%, transparent));
+}
+.plan__walker svg{display:block;width:100%;height:auto;fill:currentColor;stroke:none}
+.plan__walker::before{                       /* 腳下的光暈，讓小人從線上浮起來 */
+  content:"";position:absolute;inset:-40%;border-radius:50%;
+  background:radial-gradient(circle, color-mix(in srgb, var(--route) 42%, transparent), transparent 70%);
+}
+/* 已經到樓層出口（大螢幕還在跑樓梯那一段）：站在出口上輕輕呼吸，
+   看得出來是「到了在等」而不是「卡住不動」 */
+.plan__walker[data-arrived="1"]{animation:walkerHold 1.7s var(--ease) infinite}
+@keyframes walkerHold{ 0%,100%{opacity:1} 50%{opacity:.6} }
+/* 標籤往上／往下、靠左／靠右／居中 */
+.plan__pin[data-v="t"] b{bottom:calc(100% + .5rem)}
+.plan__pin[data-v="b"] b{top:calc(100% + .5rem)}
+.plan__pin[data-h="c"] b{left:50%;translate:-50% 0}
+.plan__pin[data-h="l"] b{left:-.15rem}
+.plan__pin[data-h="r"] b{right:-.15rem}
+
+/* ---------- 距離 ／ 已避開火源 ---------- */
+.ncard--stats{display:flex;align-items:stretch;padding:1.15rem 1.2rem}
+.stat{flex:1;display:flex;align-items:center;justify-content:center;gap:.9rem}
+.stat + .stat{border-left:1px solid var(--brand-line)}
+.stat__icon{flex:none;display:block;width:2.7rem;color:var(--ink-2)}
+.stat__icon svg{display:block;width:100%;height:auto;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.stat__label{margin:0;font-size:.8rem;letter-spacing:.14em;color:var(--ink-3)}
+.stat__value{margin:.05rem 0 0;font-size:1.05rem;letter-spacing:.06em;color:var(--ink-2)}
+.stat__value b{
+  font-size:2.3rem;font-weight:700;letter-spacing:.02em;color:var(--tone);margin-right:.18rem;
+  text-shadow:0 0 1.4rem color-mix(in srgb, var(--tone) 45%, transparent);
+}
+.stat--ok .stat__icon{color:var(--brand-hi)}
+.stat--ok .ok__tick{stroke:var(--exit)}
+.stat__ok{margin:0;font-size:1.18rem;font-weight:500;letter-spacing:.1em;color:var(--exit)}
 
 @media (prefers-reduced-motion:reduce){
-  .pad__beacon i,.pad__link i,body.pad[data-state="alarm"] .pad__title{animation:none}
+  .pad__beacon i,.pad__link i,body.pad.is-buzz,body.pad.is-buzz .alert{animation:none}
+  /* 呼吸也停掉，但要留一個中間值 —— 不然那層紅光會停在最暗或最亮 */
+  /* 面板的呼吸也停掉，並停在正常亮度 */
+  body.pad[data-view="alarm"] .alert{animation:none;filter:none}
   .pad__beacon i{opacity:.35}
+}
+
+/* ── 沒連上大螢幕的提示 ──────────────────────────────────────────────
+   ⚠️ 待機／警報／App 這三頁的狀態列把「已連線」的文字藏起來了（見 .pad__link 那段，
+      要做成手機鎖屏的樣子），所以斷線在這幾頁**看不出來**。而手動操作沒連上也會
+      照樣換本機畫面 —— 不講的話會變成「大螢幕壞了」的誤判。這條就是補那個洞。
+   ⚠️ 疊在最上層（z-index 高過 App 頁的主視覺），而且 pointer-events:none ——
+      它只是要被看到，不要吃掉下一次的點擊或滑動。 */
+.pad__toast{
+  /* ⚠️ 貼著**最下緣**。警報頁的通知卡片是塞滿到 main 底部的（最後那行英文本來就被切掉），
+     提示壓在那一段最不礙事；往上移就會蓋掉中文的疏散指示。 */
+  position:absolute;left:50%;bottom:.35rem;transform:translate(-50%, .5rem);
+  /* ⚠️ 要夠寬讓「?server=大螢幕IP:5280」排成一行。窄一點就會斷成「IP:5280」
+     單獨掉到第三行，那串位址是重點、不能被切開。 */
+  margin:0;max-width:94%;z-index:40;pointer-events:none;
+  padding:.5rem .85rem;border-radius:.7rem;
+  background:rgba(6,10,20,.95);border:1px solid rgba(255,255,255,.22);
+  box-shadow:0 .5rem 1.4rem rgba(0,0,0,.55);
+  backdrop-filter:blur(6px);
+  font-size:.7rem;line-height:1.5;letter-spacing:.01em;text-align:center;white-space:nowrap;
+  color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6);
+  opacity:0;transition:opacity .22s var(--ease), transform .22s var(--ease);
+}
+.pad__toast.is-on{opacity:1;transform:translate(-50%, 0)}
+.pad__toast b{color:var(--red);font-weight:600}
+@media (prefers-reduced-motion:reduce){ .pad__toast{transition:opacity .22s linear} }
+
+/* ---------- 前往 X 出口頁：遙控大螢幕的兩顆 icon 按鈕 ----------
+   ▶ 展示（重跑這一條）／⇄ 切換（換一條），對應大螢幕上那兩顆同名的按鈕。
+   位置：**最下面那張統計卡裡的第三格**（使用者要求放下面，比較好按）。
+   ⚠️ 曾經放在區塊右上角、用絕對定位。搬到下面之後改成塞進統計卡，
+      不是自己排一列 —— 原因見下面 .nacts 的 ⚠️。 */
+.nacts{
+  /* 統計卡（.ncard--stats）裡的第三格。flex:none —— 讓「剩餘距離」和「已避開火源」
+     維持原本的寬度，只從旁邊借走按鈕需要的那一點。
+     ⚠️ 不要改成自己排一列。這一頁扣掉四張卡只剩 1.53rem 餘裕，2.2rem 的一列會
+        滿出去約 22px，而且區塊是 flex:1; min-height:0 —— **會靜靜被裁掉，不會有捲軸**。
+     ⚠️ border-left 是照 .stat + .stat 那條分隔線的樣式手動補的：這一格不是 .stat，
+        吃不到那個相鄰選擇器。 */
+  flex:none;display:flex;align-items:center;gap:.4rem;
+  padding-left:1.1rem;margin-left:.2rem;
+  border-left:1px solid var(--brand-line);
+}
+.nact{
+  display:grid;place-items:center;width:2.2rem;height:2.2rem;padding:0;margin:0;
+  border-radius:.55rem;cursor:pointer;
+  border:1px solid color-mix(in srgb, var(--route) 45%, transparent);
+  background:color-mix(in srgb, var(--bg-2) 62%, transparent);
+  color:var(--ink-2);
+  -webkit-appearance:none;appearance:none;
+  transition:color .18s var(--ease), border-color .18s var(--ease),
+             background .18s var(--ease), transform .12s var(--ease);
+}
+.nact svg{display:block;width:1.15rem;height:1.15rem;fill:none;stroke:currentColor;
+  stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+/* 播放三角形要實心，只描邊會看起來像個空殼 */
+.nact svg .nact__solid{fill:currentColor;stroke:none}
+.nact:hover{color:var(--ink);border-color:var(--route);
+  background:color-mix(in srgb, var(--route) 16%, transparent)}
+.nact:active{transform:scale(.9)}
+.nact:focus-visible{outline:2px solid var(--route);outline-offset:2px}
+/* 指令送出去、還在等大螢幕回話的那一下：淡掉並且不能再按，避免連按送出一串 */
+.nact[disabled]{opacity:.4;cursor:default}
+@media (prefers-reduced-motion:reduce){
+  .nact,.aact--live{transition:color .18s linear}
+  .nact:active,.aact--live:active{transform:none}
 }
